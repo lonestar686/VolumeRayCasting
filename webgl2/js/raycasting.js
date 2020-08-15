@@ -3,59 +3,48 @@
 
 var volumes = {
 	 sagittal: {
-		 src: "./images/sagittal.png"
+		 src: "./images/sagittal-176x300x300-uint8.raw"
 		,name: "Brain - Water"
-		,columns: 2
-		,slices: 176
 		,zScale: 0.7
 	}
 	,vessels: {
-		 src: "./images/vessels.png"
+		 src: "./images/vessels-160x160x160-uint8.raw"
 		,name: "Brain - Vessels"
-		,columns: 1
-		,slices: 160
 		,zScale: 0.65
 	}
+	,seam: {
+		src: "./images/seam_img-256x256x256-uint8.raw"
+		,name: "Seam image"
+		,zScale: 1.0
+	}
 	,handgelenk: {
-		 src: "./images/handgelenk.jpg"
+		 src: "./images/handgelenk-316x144x320-uint8.raw"
 		,name: "Wrist"
-		,columns: 4
-		,slices: 316
 		,zScale: 1.5
 	}
 	,handgelenk2: {
-		 src: "./images/handgelenk2.jpg"
+		 src: "./images/handgelenk2-160x320x320-uint8.raw"
 		,name: "Wrist 2"
-		,columns: 2
-		,slices: 160
 		,zScale: 0.5
 	}
 	,broccoli: {
-		 src: "./images/broccoli.png"
+		 src: "./images/broccoli-50x600x600-uint8.raw"
 		,name: "Broccoli"
-		,columns: 1
-		,slices: 50
 		,zScale: 0.7
 	}
 	,sphereAntialiased: {
-		 src: "./images/sphere_antialiased.png"
+		 src: "./images/sphere_antialiased-256x256x256-uint8.raw"
 		,name: "Sphere (Anti-aliased)"
-		,columns: 16
-		,slices: 256
 		,zScale: 1
 	}
 	,cube: {
-		 src: "./images/cuuube.png"
+		 src: "./images/cuuube-128x128x128-uint8.raw"
 		,name: "Cube"
-		,columns: 16
-		,slices: 128
 		,zScale: 1
 	}
 	,smallSphere: {
-		 src: "./images/smallsphere.png"
+		 src: "./images/smallsphere-128x128x128-uint8.raw"
 		,name: "Small Sphere"
-		,columns: 16
-		,slices: 128
 		,zScale: 1
 	}
 	/*,pouet: {
@@ -203,7 +192,7 @@ var Renderer = function(){
 			
 			colorI = Math.round(colorI);
 			
-			console.log(i, colorI);
+			// console.log(i, colorI);
 			
 			var r = colorTransfer[colorI*3+0]/256;
 			var g = colorTransfer[colorI*3+1]/256;
@@ -526,64 +515,59 @@ var Renderer = function(){
 
 		loadingContent.appendChild(imagePercentage);
 
-		var textureData;
-		var imageColumns;
-		var slices;
-		var imageHeight;
-		var normals;
+		// volume information
+		const fileRegex = /.*\/(\w+)-(\d+)x(\d+)x(\d+)-(\w+)\.*/;
 
-		var img = document.createElement("img");
+		const file = volume.src
+		const m = file.match(fileRegex);
+		// dimension
+		const slices = parseInt(m[2]);
+		const imageHeight = parseInt(m[3]);
+		const imageWidth = parseInt(m[4]);
+
+		console.log(slices, imageHeight, imageWidth);
+
+		var textureData;
+		var normals;
 		
-		var xmlHTTP = new XMLHttpRequest();
-        xmlHTTP.open("GET", volume.src, true);
-        xmlHTTP.responseType = "arraybuffer";
-        xmlHTTP.onload = function(e) {
-            var blob = new Blob([this.response]);
-            img.onload = function(){
-				setTimeout(processImage, 100);
-			}
-			loadingContent.innerHTML += "<br>Processing image...";
-            loadingBar.style.width = "50%";
-            
-            img.src = window.URL.createObjectURL(blob);
+		// prepare to load volume
+		let req = new XMLHttpRequest();
+        req.open("GET", file, true);
+		req.responseType = "arraybuffer";
+
+        req.onload = function(e) {
 			
-        };
-        xmlHTTP.onprogress = function(e) {
+			let dataBuffer = req.response;
+			if (dataBuffer) {
+
+				loadingContent.innerHTML += "<br>Processing image...";
+				loadingBar.style.width = "50%";
+
+				textureData = new Uint8Array(dataBuffer);
+				setTimeout(processImage(), 100);
+			} else {
+				alert("Unable to load buffer properly from volume?");
+				console.log("no buffer?");
+			}
+
+		};
+
+        req.onprogress = function(e) {
             //thisImg.completedPercentage = parseInt((e.loaded / e.total) * 100);
            imagePercentage.innerHTML = "("+parseInt((e.loaded / e.total) * 100)+"%)";
            loadingBar.style.width = parseInt((e.loaded / e.total) * 50)+"%";
            
-        };
-        xmlHTTP.send();
+		};
 
-		function processImage(){
-			
-			imageColumns = volume.columns;
-			imageWidth = img.width/imageColumns;
-			slices = volume.slices;
-			imageHeight = img.height/(slices/imageColumns);
-
-			var textureCanvas = document.createElement("canvas");
-			var textureContext = textureCanvas.getContext("2d");
-
-			textureData = new Uint8Array(imageWidth * imageHeight * slices);
-
-			for(var c = 0; c < imageColumns; c++){
-				textureCanvas.width = imageWidth;
-				textureCanvas.height = img.height;
-				textureContext.drawImage(img, -c*imageWidth, 0);
-				
-				var imageData = textureContext.getImageData(0, 0, textureCanvas.width, textureCanvas.height).data;
-				
-				for(var i = 0; i < textureData.length/imageColumns; i++){
-					textureData[i+c*textureData.length/imageColumns] = imageData[i*4];
-				}
-			}
+		// start loading
+        req.send();
+		
+		function processImage(){	
 
 			loadingBar.style.width = "70%";
 			loadingContent.innerHTML += "<br>Calculating normal vectors...";
 			
-			setTimeout(calculateNormals, 100);
+			setTimeout(calculateNormals(), 100);
 
 		}
 
@@ -624,7 +608,8 @@ var Renderer = function(){
 
 			loadingBar.style.width = "90%";
 			loadingContent.innerHTML += "<br>Generating textures...";
-			setTimeout(generateTextures, 100);
+
+			setTimeout(generateTextures(), 100);
 
 		}
 
@@ -652,6 +637,7 @@ var Renderer = function(){
 	}
 
 	function updateVolumeTexture(textureData, width, height, slices){
+		console.log(width, height, slices);
 		// Volumetric data
 		gl.activeTexture(gl.TEXTURE0);
 		gl.texImage3D(
